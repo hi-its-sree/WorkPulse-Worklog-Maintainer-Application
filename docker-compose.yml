@@ -1,0 +1,41 @@
+version: '3.9'
+
+services:
+  postgres:
+    image: postgres:15
+    container_name: workpulse-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: workpulse
+      POSTGRES_PASSWORD: workpulse123
+      POSTGRES_DB: workpulse
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - 5432:5432
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - 8080:8080
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/workpulse
+      SPRING_DATASOURCE_USERNAME: workpulse
+      SPRING_DATASOURCE_PASSWORD: workpulse123
+      SPRING_PROFILES_ACTIVE: docker
+    depends_on:
+      - postgres
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - 4173:4173
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
