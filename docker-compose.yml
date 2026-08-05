@@ -21,10 +21,8 @@ services:
     ports:
       - 8080:8080
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/workpulse
-      SPRING_DATASOURCE_USERNAME: workpulse
-      SPRING_DATASOURCE_PASSWORD: workpulse123
-      SPRING_PROFILES_ACTIVE: docker
+      DB_DIALECT: postgres
+      DATABASE_URL: postgres://workpulse:workpulse123@postgres:5432/workpulse
     depends_on:
       - postgres
 
@@ -32,6 +30,8 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: http://backend:8080/api
     ports:
       - 4173:4173
     depends_on:

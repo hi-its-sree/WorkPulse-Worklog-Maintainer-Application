@@ -1,321 +1,290 @@
-import { useEffect, useMemo, useState } from 'react';
+import { motion } from 'framer-motion';
+import { useMemo, useState } from 'react';
+import { CalendarDays, Search, Plus, List, LayoutGrid } from 'lucide-react';
+import { useTheme } from '../contexts/ThemeContext.jsx';
+import MeetingSummaryCard from '../components/meetings/MeetingSummaryCard.jsx';
+import MeetingModal from '../components/meetings/MeetingModal.jsx';
+import MeetingDetailPanel from '../components/meetings/MeetingDetailPanel.jsx';
+import { formatDateKey } from '../components/workflow/constants.js';
 
-const availableMeetings = [
+const initialMeetings = [
   {
-    id: 'm1',
+    id: 1,
     title: 'Client alignment',
-    time: '10:30 AM',
-    description: 'Review milestones and blockers',
-    members: 'Alice, Bob, Carol',
-    notes: '',
-    frequency: 'daily',
+    project: 'ERP Modernization',
+    date: '2026-08-04',
+    startTime: '10:30',
+    duration: 45,
+    participants: 'Alice, Bob, Carol',
+    description: 'Review milestones and blockers.',
+    agenda: 'Risks, timeline, approvals.',
+    notes: 'Confirm board review next week.',
+    recurrence: 'weekly',
+    status: 'In Progress',
+    worklogStatus: 'Pending',
+    actionItems: [
+      { id: 1, title: 'Share milestone update', owner: 'Alice', dueDate: '2026-08-05', done: false },
+    ],
   },
   {
-    id: 'm2',
+    id: 2,
     title: 'Sprint retro',
-    time: '3:00 PM',
-    description: 'Discuss team productivity and improvements',
-    members: 'Dev team, QA',
-    notes: '',
-    frequency: 'weekly',
+    project: 'Client Portal',
+    date: '2026-08-06',
+    startTime: '15:00',
+    duration: 60,
+    participants: 'Dev team, QA',
+    description: 'Discuss team productivity and improvements.',
+    agenda: 'Velocity, blockers, process.',
+    notes: 'Capture follow-ups for next sprint.',
+    recurrence: 'weekly',
+    status: 'Planned',
+    worklogStatus: 'Linked',
+    actionItems: [
+      { id: 2, title: 'Create follow-up checklist', owner: 'Jordan', dueDate: '2026-08-07', done: false },
+    ],
   },
   {
-    id: 'm3',
+    id: 3,
     title: 'Project checkpoint',
-    time: '11:00 AM',
-    description: 'Approve scope and budget changes',
-    members: 'Project owner, PM',
-    notes: '',
-    frequency: 'monthly',
-  },
-  {
-    id: 'm4',
-    title: 'Design review',
-    time: '2:00 PM',
-    description: 'Evaluate UI flows and handoff notes',
-    members: 'Design, Product',
-    notes: '',
-    frequency: 'weekly',
-  },
-  {
-    id: 'm5',
-    title: 'Delivery sync',
-    time: '4:30 PM',
-    description: 'Confirm deployment readiness',
-    members: 'Ops, Release',
-    notes: '',
-    frequency: 'daily',
+    project: 'Mobile Field App',
+    date: '2026-08-02',
+    startTime: '11:00',
+    duration: 90,
+    participants: 'Project owner, PM',
+    description: 'Approve scope and budget changes.',
+    agenda: 'Budget, scope, dependencies.',
+    notes: 'Approved with minor risk note.',
+    recurrence: 'monthly',
+    status: 'Completed',
+    worklogStatus: 'Finalized',
+    actionItems: [],
   },
 ];
 
-const defaultAssemblyTask = { title: 'Morning assembly', project: '', description: '', planned: '', status: 'PLANNED', isMorningAssembly: true };
-const defaultTask = { title: '', project: '', description: '', planned: '', status: 'PLANNED', isMorningAssembly: false };
-const defaultSection = { planned: '', description: '' };
-
-import { formatDateKey } from '../components/workflow/constants.js';
-
-const formatDateKeyLocal = (date) => formatDateKey(date);
-
 const MeetingPage = () => {
-  const today = useMemo(() => new Date(), []);
-  const [viewPeriod, setViewPeriod] = useState('daily');
-  const [selectedDate, setSelectedDate] = useState(today);
-  const [meetingsForDate, setMeetingsForDate] = useState([]);
-  const [message, setMessage] = useState('');
+  const { activeTheme } = useTheme();
+  const [meetings, setMeetings] = useState(initialMeetings);
+  const [selectedDate, setSelectedDate] = useState(formatDateKey(new Date()));
+  const [viewMode, setViewMode] = useState('week');
+  const [query, setQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('All');
+  const [sortOrder, setSortOrder] = useState('date');
+  const [modalOpen, setModalOpen] = useState(false);
+  const [detailMeeting, setDetailMeeting] = useState(null);
+  const [editingMeeting, setEditingMeeting] = useState(null);
+  const [formData, setFormData] = useState({
+    title: '',
+    project: '',
+    date: selectedDate,
+    startTime: '09:00',
+    duration: 60,
+    participants: '',
+    description: '',
+    agenda: '',
+    notes: '',
+    recurrence: 'weekly',
+    status: 'Planned',
+    worklogStatus: 'Pending',
+    actionItems: [],
+  });
 
-  const dateKey = formatDateKey(selectedDate);
+  const filteredMeetings = useMemo(() => {
+    const result = meetings.filter((meeting) => {
+      const matchesQuery = `${meeting.title} ${meeting.project} ${meeting.participants}`.toLowerCase().includes(query.toLowerCase());
+      const matchesStatus = statusFilter === 'All' || meeting.status === statusFilter;
+      return matchesQuery && matchesStatus;
+    });
 
-  useEffect(() => {
-    const stored = localStorage.getItem('plannerEntries');
-    const entries = stored ? JSON.parse(stored) : {};
-    const entry = entries[dateKey];
-    if (entry?.meetings?.length) {
-      setMeetingsForDate(entry.meetings);
+    return result.sort((a, b) => {
+      if (sortOrder === 'duration') return b.duration - a.duration;
+      return a.date.localeCompare(b.date);
+    });
+  }, [meetings, query, statusFilter, sortOrder]);
+
+  const summaryCards = [
+    { label: 'Total meetings', value: meetings.length, detail: 'Across all projects', accent: activeTheme.accent },
+    { label: 'Upcoming meetings', value: meetings.filter((meeting) => meeting.status !== 'Completed' && meeting.status !== 'Cancelled').length, detail: 'Scheduled and active', accent: activeTheme.success },
+    { label: 'Completed meetings', value: meetings.filter((meeting) => meeting.status === 'Completed').length, detail: 'Closed out', accent: activeTheme.warning },
+    { label: 'Total meeting hours', value: `${meetings.reduce((sum, meeting) => sum + meeting.duration, 0) / 60}h`, detail: 'Across the calendar', accent: activeTheme.accent },
+  ];
+
+  const openCreateModal = () => {
+    setEditingMeeting(null);
+    setFormData({ title: '', project: '', date: selectedDate, startTime: '09:00', duration: 60, participants: '', description: '', agenda: '', notes: '', recurrence: 'weekly', status: 'Planned', worklogStatus: 'Pending', actionItems: [] });
+    setModalOpen(true);
+  };
+
+  const openEditModal = (meeting) => {
+    setEditingMeeting(meeting);
+    setFormData(meeting);
+    setModalOpen(true);
+  };
+
+  const handleSaveMeeting = () => {
+    if (!formData.title || !formData.project) return;
+
+    if (editingMeeting) {
+      setMeetings((current) => current.map((meeting) => meeting.id === editingMeeting.id ? { ...meeting, ...formData } : meeting));
     } else {
-      setMeetingsForDate([]);
-    }
-    setMessage('');
-  }, [dateKey]);
-
-  const meetings = useMemo(() => {
-    if (viewPeriod === 'daily') return availableMeetings.filter((meeting) => meeting.frequency === 'daily');
-    if (viewPeriod === 'weekly') return availableMeetings.filter((meeting) => meeting.frequency === 'weekly');
-    return availableMeetings.filter((meeting) => meeting.frequency === 'monthly');
-  }, [viewPeriod]);
-
-  const weekStart = useMemo(() => {
-    const start = new Date(selectedDate);
-    start.setDate(selectedDate.getDate() - selectedDate.getDay());
-    return start;
-  }, [selectedDate]);
-
-  const weekLabel = `${weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${new Date(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate() + 6).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
-
-  const saveMeetingsToWorklog = (updatedMeetings) => {
-    const stored = localStorage.getItem('plannerEntries');
-    const entries = stored ? JSON.parse(stored) : {};
-    const existingEntry = entries[dateKey] || {
-      tasks: [defaultAssemblyTask, defaultTask],
-      meetings: [],
-      documentation: defaultSection,
-      others: defaultSection,
-      savedAt: new Date().toISOString(),
-    };
-    const updatedEntry = {
-      ...existingEntry,
-      meetings: updatedMeetings,
-      savedAt: new Date().toISOString(),
-    };
-    localStorage.setItem('plannerEntries', JSON.stringify({
-      ...entries,
-      [dateKey]: updatedEntry,
-    }));
-    setMeetingsForDate(updatedMeetings);
-    setMessage(`Saved ${updatedMeetings.length} meeting${updatedMeetings.length === 1 ? '' : 's'} into your worklog for ${selectedDate.toLocaleDateString()}.`);
-  };
-
-  const toggleMeeting = (meetingId) => {
-    const foundIndex = meetingsForDate.findIndex((item) => item.id === meetingId);
-    if (foundIndex >= 0) {
-      const next = meetingsForDate.filter((item) => item.id !== meetingId);
-      saveMeetingsToWorklog(next);
-      return;
+      setMeetings((current) => [{ id: Date.now(), ...formData }, ...current]);
     }
 
-    const templateMeeting = availableMeetings.find((item) => item.id === meetingId);
-    if (!templateMeeting) return;
-    const meetingToAdd = {
-      id: templateMeeting.id,
-      title: templateMeeting.title,
-      time: templateMeeting.time,
-      description: templateMeeting.description,
-      members: templateMeeting.members,
-      notes: templateMeeting.notes || '',
-    };
-    saveMeetingsToWorklog([...meetingsForDate, meetingToAdd]);
+    setModalOpen(false);
   };
 
-  const updateMeetingField = (meetingId, field, value) => {
-    const updated = meetingsForDate.map((item) => item.id === meetingId ? { ...item, [field]: value } : item);
-    saveMeetingsToWorklog(updated);
+  const handleDelete = (meeting) => {
+    setMeetings((current) => current.filter((item) => item.id !== meeting.id));
+    setDetailMeeting(null);
   };
 
-  const selectedMeetingIds = useMemo(() => meetingsForDate.map((meeting) => meeting.id), [meetingsForDate]);
-
-  const addManualMeeting = () => {
-    const newMeeting = {
-      id: `manual-${Date.now()}`,
-      title: '',
-      time: '09:00 AM',
-      description: '',
-      members: '',
-      notes: '',
-    };
-    saveMeetingsToWorklog([...meetingsForDate, newMeeting]);
+  const handleDuplicate = (meeting) => {
+    const duplicate = { ...meeting, id: Date.now(), title: `${meeting.title} (Copy)`, date: meeting.date };
+    setMeetings((current) => [duplicate, ...current]);
+    setDetailMeeting(duplicate);
   };
+
+  const handleReschedule = (meeting) => {
+    const nextDate = prompt('Enter new date (YYYY-MM-DD)', meeting.date);
+    if (!nextDate) return;
+    setMeetings((current) => current.map((item) => item.id === meeting.id ? { ...item, date: nextDate } : item));
+  };
+
+  const selectedMeetings = filteredMeetings.filter((meeting) => meeting.date === selectedDate);
+  const pastMeetings = filteredMeetings.filter((meeting) => meeting.date < selectedDate && meeting.status !== 'Cancelled');
+  const upcomingMeetings = filteredMeetings.filter((meeting) => meeting.date >= selectedDate && meeting.status !== 'Cancelled');
 
   return (
     <div className="mx-auto max-w-7xl space-y-8 px-4 py-8 sm:px-6 lg:px-8">
       <div className="app-card">
-        <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <p className="text-sm uppercase tracking-[0.4em] text-blue-600">Meeting management</p>
-            <h1 className="mt-2 text-3xl font-semibold text-slate-900">Select daily, weekly, or monthly meetings</h1>
-            <p className="mt-2 text-slate-500">Pick meetings and save them directly into the final worklog for the day.</p>
+            <p className="text-sm uppercase tracking-[0.4em]" style={{ color: activeTheme.accent }}>Meeting workspace</p>
+            <h1 className="mt-2 text-3xl font-semibold" style={{ color: activeTheme.textPrimary }}>Calendar-based meeting management</h1>
+            <p className="mt-2" style={{ color: activeTheme.textSecondary }}>Coordinate meetings, track action items, and connect them to worklog delivery.</p>
           </div>
-          <div className="app-panel flex flex-wrap items-center gap-3 px-4 py-3 text-sm font-semibold">
-            {['daily', 'weekly', 'monthly'].map((period) => (
-              <button
-                key={period}
-                type="button"
-                onClick={() => setViewPeriod(period)}
-                className={`rounded-full px-4 py-2 text-sm font-semibold transition ${viewPeriod === period ? 'bg-blue-600 text-white' : 'bg-white text-slate-700 hover:bg-slate-100'}`}
-              >
-                {period}
+          <button type="button" className="app-action-btn inline-flex items-center gap-2" onClick={openCreateModal}><Plus size={16} /> New meeting</button>
+        </div>
+
+        <div className="mt-8 grid gap-6 md:grid-cols-2 xl:grid-cols-4">
+          {summaryCards.map((card) => <MeetingSummaryCard key={card.label} label={card.label} value={card.value} detail={card.detail} accent={card.accent} />)}
+        </div>
+      </div>
+
+      <div className="rounded-[32px] border p-6 shadow-sm" style={{ backgroundColor: activeTheme.surface, borderColor: activeTheme.border, boxShadow: activeTheme.shadowSoft }}>
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex flex-wrap items-center gap-3">
+            {['week', 'day', 'agenda'].map((mode) => (
+              <button key={mode} type="button" className={`rounded-full px-4 py-2 text-sm font-medium ${viewMode === mode ? 'text-white' : ''}`} style={{ backgroundColor: viewMode === mode ? activeTheme.accent : activeTheme.surfaceAlt, color: viewMode === mode ? activeTheme.accentContrast : activeTheme.textSecondary }} onClick={() => setViewMode(mode)}>
+                {mode === 'week' ? 'Week view' : mode === 'day' ? 'Day view' : 'Agenda'}
               </button>
             ))}
           </div>
-        </div>
-
-        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <p className="rounded-3xl bg-slate-50 px-4 py-3 text-sm text-slate-700">Selected date: {selectedDate.toLocaleDateString()}</p>
-          <input
-            type="date"
-            value={dateKey}
-            onChange={(e) => setSelectedDate(new Date(e.target.value))}
-            className="rounded-3xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900"
-          />
-        </div>
-
-        {viewPeriod === 'weekly' && (
-          <div className="mb-6 rounded-[28px] bg-slate-50 p-4 text-sm text-slate-700">
-            Viewing meetings for the week: <strong>{weekLabel}</strong>
+          <div className="flex flex-wrap items-center gap-3">
+            <label className="flex items-center gap-2 rounded-2xl border px-4 py-3" style={{ borderColor: activeTheme.border, backgroundColor: activeTheme.surfaceAlt }}>
+              <Search size={16} style={{ color: activeTheme.textSecondary }} />
+              <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search meetings" className="w-36 border-none bg-transparent outline-none" style={{ color: activeTheme.textPrimary }} />
+            </label>
+            <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="rounded-2xl border px-4 py-3" style={{ borderColor: activeTheme.border, backgroundColor: activeTheme.surfaceAlt, color: activeTheme.textPrimary }}>
+              <option value="All">All statuses</option>
+              <option value="Planned">Planned</option>
+              <option value="In Progress">In Progress</option>
+              <option value="Completed">Completed</option>
+              <option value="Cancelled">Cancelled</option>
+            </select>
+            <select value={sortOrder} onChange={(event) => setSortOrder(event.target.value)} className="rounded-2xl border px-4 py-3" style={{ borderColor: activeTheme.border, backgroundColor: activeTheme.surfaceAlt, color: activeTheme.textPrimary }}>
+              <option value="date">Date</option>
+              <option value="duration">Duration</option>
+            </select>
           </div>
-        )}
-
-        <div className="grid gap-6 lg:grid-cols-2">
-          {meetings.map((meeting) => {
-            const selected = selectedMeetingIds.includes(meeting.id);
-            return (
-              <button
-                key={meeting.id}
-                type="button"
-                onClick={() => toggleMeeting(meeting.id)}
-                className={`group rounded-[28px] border p-6 text-left transition ${selected ? 'border-blue-600 bg-blue-50 shadow-sm' : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'}`}
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <h2 className="text-xl font-semibold text-slate-900">{meeting.title}</h2>
-                    <p className="mt-2 text-sm text-slate-500">{meeting.description}</p>
-                  </div>
-                  <span className="rounded-full bg-slate-100 px-3 py-1 text-sm font-semibold text-slate-700">{meeting.time}</span>
-                </div>
-                <p className="mt-3 text-sm text-slate-600">Members: {meeting.members}</p>
-                <div className="mt-4 flex items-center gap-2 text-sm font-medium text-slate-700">
-                  <span className={`inline-flex h-3 w-3 rounded-full ${selected ? 'bg-blue-600' : 'bg-slate-300'}`} />
-                  {selected ? 'Selected' : 'Tap to select'}
-                </div>
-              </button>
-            );
-          })}
         </div>
 
-        <div className="mt-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <button
-            type="button"
-            onClick={addManualMeeting}
-            className="app-action-btn bg-[var(--accent)]"
-          >
-            Add custom meeting
-          </button>
-          <p className="text-sm text-slate-500">Saved meetings are stored into the finalized worklog for the selected date.</p>
-        </div>
-
-        <div className="app-panel mt-8 p-6">
-          <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <p className="text-sm uppercase tracking-[0.24em] text-slate-500">Saved meetings</p>
-              <h2 className="mt-2 text-2xl font-semibold text-slate-900">Meetings saved for this day</h2>
+        <div className="mt-8 grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+          <div className="rounded-[28px] border p-5" style={{ backgroundColor: activeTheme.surfaceAlt, borderColor: activeTheme.border }}>
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <p className="text-sm uppercase tracking-[0.24em]" style={{ color: activeTheme.textSecondary }}>Calendar</p>
+                <h2 className="mt-2 text-xl font-semibold" style={{ color: activeTheme.textPrimary }}>Meeting schedule</h2>
+              </div>
+              <label className="flex items-center gap-2 rounded-2xl border px-3 py-2" style={{ borderColor: activeTheme.border, backgroundColor: activeTheme.surface }}>
+                <CalendarDays size={16} style={{ color: activeTheme.textSecondary }} />
+                <input type="date" value={selectedDate} onChange={(event) => setSelectedDate(event.target.value)} className="border-none bg-transparent outline-none" style={{ color: activeTheme.textPrimary }} />
+              </label>
             </div>
-          </div>
 
-          {meetingsForDate.length === 0 ? (
-            <p className="rounded-3xl bg-white px-4 py-5 text-sm text-slate-600">No meetings saved for this date yet. Select a template meeting above or add one manually.</p>
-          ) : (
-            <div className="space-y-5">
-              {meetingsForDate.map((meeting) => (
-                <div key={meeting.id} className="rounded-[28px] bg-white p-5 shadow-sm">
-                  <div className="grid gap-4 lg:grid-cols-2">
-                    <label className="space-y-2 text-sm text-slate-700">
-                      <span>Title</span>
-                      <input
-                        value={meeting.title}
-                        onChange={(e) => updateMeetingField(meeting.id, 'title', e.target.value)}
-                        className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900"
-                        placeholder="Meeting title"
-                      />
-                    </label>
-                    <label className="space-y-2 text-sm text-slate-700">
-                      <span>Time</span>
-                      <input
-                        type="text"
-                        value={meeting.time}
-                        onChange={(e) => updateMeetingField(meeting.id, 'time', e.target.value)}
-                        className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900"
-                        placeholder="Meeting time"
-                      />
-                    </label>
+            <div className="space-y-3">
+              {filteredMeetings.filter((meeting) => meeting.date === selectedDate).length === 0 ? (
+                <p className="rounded-2xl border p-4 text-sm" style={{ borderColor: activeTheme.border, color: activeTheme.textSecondary }}>No meetings for the selected date yet.</p>
+              ) : filteredMeetings.filter((meeting) => meeting.date === selectedDate).map((meeting) => (
+                <motion.button key={meeting.id} layout type="button" onClick={() => setDetailMeeting(meeting)} className="w-full rounded-[24px] border p-4 text-left" style={{ borderColor: activeTheme.border, backgroundColor: activeTheme.surface }}>
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="font-semibold" style={{ color: activeTheme.textPrimary }}>{meeting.title}</p>
+                      <p className="mt-1 text-sm" style={{ color: activeTheme.textSecondary }}>{meeting.project} • {meeting.startTime}</p>
+                    </div>
+                    <span className="rounded-full px-3 py-1 text-xs font-semibold" style={{ backgroundColor: activeTheme.accentSoft, color: activeTheme.accent }}>{meeting.status}</span>
                   </div>
-
-                  <div className="grid gap-4 lg:grid-cols-2 mt-4">
-                    <label className="space-y-2 text-sm text-slate-700">
-                      <span>Description</span>
-                      <textarea
-                        value={meeting.description}
-                        onChange={(e) => updateMeetingField(meeting.id, 'description', e.target.value)}
-                        className="h-24 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900"
-                        placeholder="Meeting description"
-                      />
-                    </label>
-                    <label className="space-y-2 text-sm text-slate-700">
-                      <span>Members</span>
-                      <input
-                        value={meeting.members}
-                        onChange={(e) => updateMeetingField(meeting.id, 'members', e.target.value)}
-                        className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900"
-                        placeholder="Attendees"
-                      />
-                    </label>
-                  </div>
-
-                  <label className="mt-4 space-y-2 text-sm text-slate-700">
-                    <span>Notes</span>
-                    <textarea
-                      value={meeting.notes}
-                      onChange={(e) => updateMeetingField(meeting.id, 'notes', e.target.value)}
-                      className="h-32 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900"
-                      placeholder="Meeting notes and action items"
-                    />
-                  </label>
-
-                  <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-                    <button
-                      type="button"
-                      onClick={() => saveMeetingsToWorklog(meetingsForDate.filter((item) => item.id !== meeting.id))}
-                      className="rounded-full border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-700 transition hover:bg-rose-100"
-                    >
-                      Remove meeting
-                    </button>
-                    <span className="text-sm text-slate-500">Saved for {selectedDate.toLocaleDateString()}</span>
-                  </div>
-                </div>
+                </motion.button>
               ))}
             </div>
-          )}
+          </div>
+
+          <div className="space-y-4">
+            <div className="rounded-[28px] border p-5" style={{ backgroundColor: activeTheme.surface, borderColor: activeTheme.border }}>
+              <p className="text-sm uppercase tracking-[0.24em]" style={{ color: activeTheme.textSecondary }}>Review history</p>
+              <h3 className="mt-2 text-xl font-semibold" style={{ color: activeTheme.textPrimary }}>Past, current, upcoming</h3>
+              <div className="mt-4 space-y-3">
+                {pastMeetings.slice(0, 3).map((meeting) => <div key={meeting.id} className="rounded-2xl border px-3 py-3 text-sm" style={{ borderColor: activeTheme.border, color: activeTheme.textSecondary }}><span className="font-semibold" style={{ color: activeTheme.textPrimary }}>{meeting.title}</span> • {meeting.date}</div>)}
+                {upcomingMeetings.slice(0, 3).map((meeting) => <div key={meeting.id} className="rounded-2xl border px-3 py-3 text-sm" style={{ borderColor: activeTheme.border, color: activeTheme.textSecondary }}><span className="font-semibold" style={{ color: activeTheme.textPrimary }}>{meeting.title}</span> • {meeting.date}</div>)}
+              </div>
+            </div>
+            <div className="rounded-[28px] border p-5" style={{ backgroundColor: activeTheme.surface, borderColor: activeTheme.border }}>
+              <p className="text-sm uppercase tracking-[0.24em]" style={{ color: activeTheme.textSecondary }}>Worklog linkage</p>
+              <p className="mt-2 text-sm" style={{ color: activeTheme.textSecondary }}>Every meeting can be linked to a worklog entry and automatically contribute to the day’s tracked meeting hours.</p>
+            </div>
+          </div>
         </div>
 
-        {message && <p className="mt-4 rounded-3xl bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{message}</p>}
+        <div className="mt-8 overflow-hidden rounded-[28px] border" style={{ borderColor: activeTheme.border }}>
+          <div className="grid gap-4 border-b p-4 md:grid-cols-2 lg:grid-cols-4" style={{ backgroundColor: activeTheme.surfaceAlt }}>
+            <div>
+              <p className="text-sm" style={{ color: activeTheme.textSecondary }}>Search</p>
+              <p className="mt-1 font-medium" style={{ color: activeTheme.textPrimary }}>Find meetings</p>
+            </div>
+            <div>
+              <p className="text-sm" style={{ color: activeTheme.textSecondary }}>Filters</p>
+              <p className="mt-1 font-medium" style={{ color: activeTheme.textPrimary }}>Status and recurrence</p>
+            </div>
+            <div>
+              <p className="text-sm" style={{ color: activeTheme.textSecondary }}>Sorting</p>
+              <p className="mt-1 font-medium" style={{ color: activeTheme.textPrimary }}>By date or duration</p>
+            </div>
+            <div>
+              <p className="text-sm" style={{ color: activeTheme.textSecondary }}>History</p>
+              <p className="mt-1 font-medium" style={{ color: activeTheme.textPrimary }}>Audit-ready view</p>
+            </div>
+          </div>
+          <div className="divide-y" style={{ backgroundColor: activeTheme.surface }}>
+            {filteredMeetings.map((meeting) => (
+              <div key={meeting.id} className="flex flex-col gap-3 p-4 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <p className="font-semibold" style={{ color: activeTheme.textPrimary }}>{meeting.title}</p>
+                  <p className="mt-1 text-sm" style={{ color: activeTheme.textSecondary }}>{meeting.project} • {meeting.date} • {meeting.startTime}</p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="rounded-full px-3 py-1 text-xs font-semibold" style={{ backgroundColor: activeTheme.accentSoft, color: activeTheme.accent }}>{meeting.status}</span>
+                  <span className="rounded-full border px-3 py-1 text-xs" style={{ borderColor: activeTheme.border, color: activeTheme.textSecondary }}>{meeting.recurrence}</span>
+                  <button type="button" className="rounded-full border px-3 py-2 text-sm" style={{ borderColor: activeTheme.border, color: activeTheme.textSecondary }} onClick={() => setDetailMeeting(meeting)}>Open</button>
+                  <button type="button" className="rounded-full border px-3 py-2 text-sm" style={{ borderColor: activeTheme.border, color: activeTheme.textSecondary }} onClick={() => openEditModal(meeting)}>Edit</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
+
+      <MeetingModal isOpen={modalOpen} mode={editingMeeting ? 'edit' : 'create'} formData={formData} setFormData={setFormData} onClose={() => setModalOpen(false)} onSubmit={handleSaveMeeting} />
+      <MeetingDetailPanel meeting={detailMeeting} onClose={() => setDetailMeeting(null)} onEdit={openEditModal} onDelete={handleDelete} onDuplicate={handleDuplicate} onReschedule={handleReschedule} />
     </div>
   );
 };

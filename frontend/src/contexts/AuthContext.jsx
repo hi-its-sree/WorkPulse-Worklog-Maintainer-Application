@@ -1,5 +1,5 @@
 import { createContext, useEffect, useMemo, useState } from 'react';
-import { getStoredToken, getStoredUser, logoutUser, setAuthToken } from '../lib/auth.js';
+import { getStoredToken, getStoredUser, logoutUser, setAuthToken, setStoredUser } from '../lib/auth.js';
 
 export const AuthContext = createContext(null);
 
@@ -16,6 +16,7 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const signIn = (userData) => {
+    setStoredUser(userData);
     setUser(userData);
   };
 

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import { formatDateKey } from '../components/workflow/constants.js';
+import { useTheme } from '../contexts/ThemeContext.jsx';
 
 const formatDateKeyLocal = (date) => formatDateKey(date);
 
@@ -70,6 +71,7 @@ const buildMonthCalendar = (year, month) => {
 };
 
 const CalendarPage = () => {
+  const { activeTheme } = useTheme();
   const today = new Date();
   const [selectedDate, setSelectedDate] = useState(today);
   const [currentYear, setCurrentYear] = useState(today.getFullYear());
@@ -107,10 +109,10 @@ const CalendarPage = () => {
       <div className="app-card">
         <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <h1 className="text-3xl font-semibold text-slate-900">Calendar module</h1>
-            <p className="mt-2 text-slate-500">Select a date and view saved worklog details or holiday status for that day.</p>
+            <h1 className="text-3xl font-semibold" style={{ color: activeTheme.textPrimary }}>Calendar module</h1>
+            <p className="mt-2" style={{ color: activeTheme.textSecondary }}>Select a date and view saved worklog details or holiday status for that day.</p>
           </div>
-          <div className="rounded-3xl bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700 shadow-sm">
+          <div className="rounded-3xl px-4 py-3 text-sm font-semibold shadow-sm" style={{ backgroundColor: activeTheme.surfaceAlt, color: activeTheme.textPrimary }}>
             {monthName}
           </div>
         </div>

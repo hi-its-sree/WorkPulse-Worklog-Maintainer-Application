@@ -1,10 +1,12 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useContext, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { AuthContext } from '../contexts/AuthContext.jsx';
 import { loginUser } from '../lib/auth.js';
 
 const LoginPage = () => {
   const navigate = useNavigate();
+  const { signIn } = useContext(AuthContext);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -13,7 +15,8 @@ const LoginPage = () => {
     event.preventDefault();
     setError('');
     try {
-      await loginUser({ email, password });
+      const user = await loginUser({ email, password });
+      signIn(user);
       navigate('/dashboard');
     } catch (err) {
       setError(err.response?.data?.message || 'Login failed. Please verify your credentials.');
@@ -65,7 +68,7 @@ const LoginPage = () => {
               <input type="checkbox" className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
               Remember me
             </label>
-            <button type="button" className="text-blue-600 hover:text-blue-700">Forgot password?</button>
+            <Link to="/forgot-password" className="text-blue-600 hover:text-blue-700">Forgot password?</Link>
           </div>
 
           <button type="submit" className="app-action-btn w-full">Login</button>

@@ -10,6 +10,7 @@ import notificationRoutes from './notificationRoutes.js';
 import documentRoutes from './documentRoutes.js';
 import approvalRoutes from './approvalRoutes.js';
 import timeEntryRoutes from './timeEntryRoutes.js';
+import reportRoutes from './reportRoutes.js';
 
 const router = express.Router();
 router.use('/auth', authRoutes);
@@ -23,5 +24,6 @@ router.use('/notifications', notificationRoutes);
 router.use('/documents', documentRoutes);
 router.use('/approvals', approvalRoutes);
 router.use('/time-entries', timeEntryRoutes);
+router.use('/reports', reportRoutes);
 
 export default router;

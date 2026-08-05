@@ -1,16 +1,26 @@
-import { useState } from 'react';
+import { useContext, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { AuthContext } from '../contexts/AuthContext.jsx';
 import { registerUser } from '../lib/auth.js';
 
 const RegisterPage = () => {
   const navigate = useNavigate();
+  const { signIn } = useContext(AuthContext);
   const [formState, setFormState] = useState({
     fullName: '',
     employeeId: '',
     email: '',
     department: '',
-    designation: '',
+    jobTitle: '',
+    phone: '',
+    location: '',
+    manager: '',
+    securityAnswerPetName: '',
+    securityAnswerChildhoodNickname: '',
+    securityAnswerBirthplace: '',
+    securityAnswerFavoritePlace: '',
+    securityAnswerFavoriteMovie: '',
     role: 'EMPLOYEE',
     password: '',
     confirmPassword: '',
@@ -32,16 +42,25 @@ const RegisterPage = () => {
     }
 
     try {
-      await registerUser({
+      const createdUser = await registerUser({
         fullName: formState.fullName,
         employeeId: formState.employeeId,
         email: formState.email,
         department: formState.department,
-        designation: formState.designation,
-        role: formState.role,
+        jobTitle: formState.jobTitle,
+        phone: formState.phone,
+        location: formState.location,
+        manager: formState.manager,
+        securityAnswerPetName: formState.securityAnswerPetName,
+        securityAnswerChildhoodNickname: formState.securityAnswerChildhoodNickname,
+        securityAnswerBirthplace: formState.securityAnswerBirthplace,
+        securityAnswerFavoritePlace: formState.securityAnswerFavoritePlace,
+        securityAnswerFavoriteMovie: formState.securityAnswerFavoriteMovie,
         password: formState.password,
+        role: formState.role,
       });
-      navigate('/');
+      signIn(createdUser);
+      navigate('/profile?onboarding=1');
     } catch (err) {
       setError(err.response?.data?.message || 'Registration failed.');
     }
@@ -111,14 +130,107 @@ const RegisterPage = () => {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700">Designation</label>
+            <label className="block text-sm font-medium text-slate-700">Job Title</label>
             <input
-              name="designation"
+              name="jobTitle"
               type="text"
-              value={formState.designation}
+              value={formState.jobTitle}
               onChange={handleChange}
               className="mt-2 w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-blue-400"
               placeholder="Software Engineer"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700">Phone</label>
+            <input
+              name="phone"
+              type="text"
+              value={formState.phone}
+              onChange={handleChange}
+              className="mt-2 w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-blue-400"
+              placeholder="+1 (555) 123-4567"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700">Location</label>
+            <input
+              name="location"
+              type="text"
+              value={formState.location}
+              onChange={handleChange}
+              className="mt-2 w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-blue-400"
+              placeholder="New York, NY"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700">Manager</label>
+            <input
+              name="manager"
+              type="text"
+              value={formState.manager}
+              onChange={handleChange}
+              className="mt-2 w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-blue-400"
+              placeholder="Jordan Smith"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700">Your pet's name</label>
+            <input
+              name="securityAnswerPetName"
+              type="text"
+              value={formState.securityAnswerPetName}
+              onChange={handleChange}
+              className="mt-2 w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-blue-400"
+              placeholder="Fluffy"
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700">Childhood nickname</label>
+            <input
+              name="securityAnswerChildhoodNickname"
+              type="text"
+              value={formState.securityAnswerChildhoodNickname}
+              onChange={handleChange}
+              className="mt-2 w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-blue-400"
+              placeholder="Bear"
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700">Birthplace</label>
+            <input
+              name="securityAnswerBirthplace"
+              type="text"
+              value={formState.securityAnswerBirthplace}
+              onChange={handleChange}
+              className="mt-2 w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-blue-400"
+              placeholder="Austin"
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700">Favorite place</label>
+            <input
+              name="securityAnswerFavoritePlace"
+              type="text"
+              value={formState.securityAnswerFavoritePlace}
+              onChange={handleChange}
+              className="mt-2 w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-blue-400"
+              placeholder="Lake Tahoe"
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700">Favorite movie</label>
+            <input
+              name="securityAnswerFavoriteMovie"
+              type="text"
+              value={formState.securityAnswerFavoriteMovie}
+              onChange={handleChange}
+              className="mt-2 w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-blue-400"
+              placeholder="The Matrix"
+              required
             />
           </div>
           <div>

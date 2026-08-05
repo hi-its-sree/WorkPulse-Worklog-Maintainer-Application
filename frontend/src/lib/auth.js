@@ -3,17 +3,45 @@ import { setAuthToken } from './api.js';
 
 export { setAuthToken } from './api.js';
 
+export const setStoredUser = (user) => {
+  localStorage.setItem('workpulse_user', JSON.stringify(user));
+};
+
 export const loginUser = async (credentials) => {
   const response = await api.post('/auth/login', credentials);
   const { token, user } = response.data;
   localStorage.setItem('workpulse_token', token);
-  localStorage.setItem('workpulse_user', JSON.stringify(user));
+  setStoredUser(user);
   setAuthToken(token);
   return user;
 };
 
 export const registerUser = async (payload) => {
   const response = await api.post('/auth/register', payload);
+  const { token, user } = response.data;
+  localStorage.setItem('workpulse_token', token);
+  setStoredUser(user);
+  setAuthToken(token);
+  return user;
+};
+
+export const recoverPassword = async (payload) => {
+  const response = await api.post('/auth/recover', payload);
+  return response.data;
+};
+
+export const verifyRecoveryAnswers = async (payload) => {
+  const response = await api.post('/auth/recover/verify', payload);
+  return response.data;
+};
+
+export const resetPassword = async (payload) => {
+  const response = await api.post('/auth/reset-password', payload);
+  return response.data;
+};
+
+export const updateUserProfile = async (payload) => {
+  const response = await api.patch('/users/me', payload);
   return response.data;
 };
 

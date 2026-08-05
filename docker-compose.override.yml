@@ -1,0 +1,18 @@
+version: '3.9'
+
+services:
+  backend:
+    environment:
+      DB_DIALECT: postgres
+      DATABASE_URL: postgres://workpulse:workpulse123@postgres:5432/workpulse
+    depends_on:
+      - postgres
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - 4173:4173
+    depends_on:
+      - backend

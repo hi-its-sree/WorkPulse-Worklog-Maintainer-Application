@@ -111,6 +111,60 @@ body::before {
   background-color: var(--accent-strong) !important;
 }
 
+.bg-emerald-100,
+.bg-emerald-50,
+.bg-emerald-200 {
+  background-color: rgba(52, 211, 153, 0.16) !important;
+}
+
+.bg-rose-100,
+.bg-rose-50,
+.bg-rose-200 {
+  background-color: rgba(248, 113, 113, 0.16) !important;
+}
+
+.bg-sky-100,
+.bg-sky-50,
+.bg-sky-200 {
+  background-color: rgba(96, 165, 250, 0.16) !important;
+}
+
+.bg-amber-100,
+.bg-amber-50,
+.bg-amber-200 {
+  background-color: rgba(251, 191, 36, 0.16) !important;
+}
+
+.bg-red-100,
+.bg-red-50 {
+  background-color: rgba(248, 113, 113, 0.16) !important;
+}
+
+.text-emerald-700,
+.text-emerald-600 {
+  color: var(--success) !important;
+}
+
+.text-rose-700,
+.text-rose-600 {
+  color: var(--destructive) !important;
+}
+
+.text-sky-700,
+.text-sky-600 {
+  color: var(--accent) !important;
+}
+
+.text-amber-700,
+.text-amber-600 {
+  color: var(--warning) !important;
+}
+
+.text-red-700,
+.text-red-600 {
+  color: var(--destructive) !important;
+}
+
 .border-slate-200,
 .border-slate-300,
 .border-slate-400,

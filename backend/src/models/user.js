@@ -31,13 +31,54 @@ export const User = sequelize.define('User', {
   department: {
     type: DataTypes.STRING,
   },
-  designation: {
+  jobTitle: {
     type: DataTypes.STRING,
   },
-  role: {
-    type: DataTypes.ENUM('EMPLOYEE', 'TEAM_LEAD', 'PROJECT_MANAGER', 'HR', 'ADMIN'),
-    allowNull: false,
-    defaultValue: 'EMPLOYEE',
+  phone: {
+    type: DataTypes.STRING,
+  },
+  location: {
+    type: DataTypes.STRING,
+  },
+  manager: {
+    type: DataTypes.STRING,
+  },
+  securityAnswerPetName: {
+    type: DataTypes.STRING,
+  },
+  securityAnswerChildhoodNickname: {
+    type: DataTypes.STRING,
+  },
+  securityAnswerBirthplace: {
+    type: DataTypes.STRING,
+  },
+  securityAnswerFavoritePlace: {
+    type: DataTypes.STRING,
+  },
+  securityAnswerFavoriteMovie: {
+    type: DataTypes.STRING,
+  },
+  securityResetAttempts: {
+    type: DataTypes.INTEGER,
+    defaultValue: 0,
+  },
+  securityResetLockedUntil: {
+    type: DataTypes.DATE,
+  },
+  visibility: {
+    type: DataTypes.STRING,
+    defaultValue: 'Internal only',
+  },
+  accessLevel: {
+    type: DataTypes.STRING,
+    defaultValue: 'Standard user',
+  },
+  status: {
+    type: DataTypes.STRING,
+    defaultValue: 'Active',
+  },
+  lastLoginAt: {
+    type: DataTypes.DATE,
   },
   enabled: {
     type: DataTypes.BOOLEAN,
