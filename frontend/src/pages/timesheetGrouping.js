@@ -142,9 +142,11 @@ export const groupRecordsByTask = (rows = [], { matchMode = 'similar' } = {}) =>
         lastDateLabel: latest?.dateLabel || '',
         loggedHours: entries.reduce((sum, entry) => sum + Number(entry.loggedHours || 0), 0),
         descriptions: uniqueInOrder(entries.map((entry) => entry.description)),
-        // The newest entry describes where the task stands now.
+        // The newest entry describes where the task stands now. Earlier days keep
+        // saying what was true on them — a task logged as Ongoing on Monday and
+        // Completed on Tuesday is one completed task, not one of each.
         status: latest?.status || '',
-        completed: entries.every((entry) => entry.completed),
+        completed: Boolean(latest?.completed),
       });
     });
   });

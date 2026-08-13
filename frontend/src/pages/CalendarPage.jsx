@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 
-import { formatDateKey } from '../components/workflow/constants.js';
+import { formatDateKey, getSessionStatusLabel, getStatusLabel, getStatusTone, WORKFLOW_STATUSES } from '../components/workflow/constants.js';
 import { useTheme } from '../contexts/ThemeContext.jsx';
 import { useLanguage } from '../contexts/LanguageContext.jsx';
 import { getJapaneseHolidays } from '../lib/holidays.js';
@@ -64,6 +64,8 @@ const CalendarPage = () => {
   const selectedHoliday = holidays[selectedKey] || (selectedDate.getDay() === 0 ? strings.calendar.sunday : selectedDate.getDay() === 6 ? strings.calendar.saturday : null);
   const savedEntry = savedPlanners[selectedKey];
   const savedWorklog = savedWorklogs[selectedKey];
+  // The worklog is the later word on a day, so its status wins over the plan's.
+  const dayStatus = savedWorklog?.status || savedEntry?.status || WORKFLOW_STATUSES.PLANNED;
   const monthName = selectedDate.toLocaleDateString(locale, { month: 'long', year: 'numeric' });
   const formattedSelectedDate = selectedDate.toLocaleDateString(locale, { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' });
 
@@ -203,7 +205,12 @@ const CalendarPage = () => {
                 <div className="rounded-3xl bg-slate-50 p-4 text-sm text-slate-700 shadow-sm">
                   <p className="font-semibold text-slate-900">{strings.calendar.savedWorklog}</p>
                   <p className="mt-2">{strings.calendar.savedAt} {savedWorklog?.updatedAt ? new Date(savedWorklog.updatedAt).toLocaleString(locale) : savedEntry?.savedAt ? new Date(savedEntry.savedAt).toLocaleString(locale) : strings.calendar.notAvailable}</p>
-                  <p className="mt-2 text-sm text-slate-600">{strings.calendar.status}: {savedWorklog?.status || savedEntry?.status || strings.calendar.planned}</p>
+                  <p className="mt-2 flex items-center gap-2 text-sm text-slate-600">
+                    <span>{strings.calendar.status}:</span>
+                    <span className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] ${getStatusTone(dayStatus)}`}>
+                      {getStatusLabel(dayStatus, strings)}
+                    </span>
+                  </p>
                 </div>
 
                 {savedWorklog?.details?.length > 0 ? (
@@ -249,7 +256,7 @@ const CalendarPage = () => {
                   <p className="mt-2 text-sm text-slate-600">{strings.calendar.plannedMinutes}: {savedWorklog?.plannedMinutes || savedEntry?.tasks?.reduce((sum, task) => sum + Number(task.planned || 0), 0) || 0}</p>
                   <p className="mt-1 text-sm text-slate-600">{strings.calendar.actualMinutes}: {savedWorklog?.actualMinutes || 0}</p>
                   <p className="mt-1 text-sm text-slate-600">{strings.calendar.meetingTime}: {savedWorklog?.meetingTime || strings.calendar.notRecorded}</p>
-                  <p className="mt-1 text-sm text-slate-600">{strings.calendar.completion}: {savedWorklog?.completionStatus || strings.calendar.notRecorded}</p>
+                  <p className="mt-1 text-sm text-slate-600">{strings.calendar.completion}: {savedWorklog?.completionStatus ? getSessionStatusLabel(savedWorklog.completionStatus, strings) : strings.calendar.notRecorded}</p>
                 </div>
 
                 <Link to={`/worklog?date=${selectedKey}`} className="app-action-btn">

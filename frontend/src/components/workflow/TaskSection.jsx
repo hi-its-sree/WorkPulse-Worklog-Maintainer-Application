@@ -1,10 +1,25 @@
+import { useEffect, useRef } from 'react';
 import { Plus, Trash2, Copy, AlertCircle } from 'lucide-react';
 import { useLanguage } from '../../contexts/LanguageContext.jsx';
 import { formatProjectLabel, useProjects } from '../../lib/useProjects.js';
 
-const TaskSection = ({ tasks, onAddTask, onUpdateTask, onDeleteTask, onDuplicateTask, errors = {} }) => {
+const TaskSection = ({ tasks, onAddTask, onUpdateTask, onDeleteTask, onCopyTask, errors = {}, focusIndex = null, onFocusHandled }) => {
   const { strings } = useLanguage();
   const { projects, loading: projectsLoading } = useProjects();
+  const rowRefs = useRef({});
+
+  // Bring a just-added row into view and put the cursor in it. Copying a task does
+  // not add a row, so it never triggers this.
+  useEffect(() => {
+    if (focusIndex == null) return;
+    const row = rowRefs.current[focusIndex];
+    if (!row) return;
+
+    row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    const titleInput = row.querySelector('[data-task-title]');
+    if (titleInput) titleInput.focus({ preventScroll: true });
+    onFocusHandled?.();
+  }, [focusIndex, tasks.length]);
 
   // A task saved before its project existed in the register keeps its typed name,
   // shown as an extra option so re-saving the day never silently drops it.
@@ -37,7 +52,11 @@ const TaskSection = ({ tasks, onAddTask, onUpdateTask, onDeleteTask, onDuplicate
         {(Array.isArray(tasks) ? tasks : []).map((task, index) => {
           const isAssembly = task?.isMorningAssembly;
           return (
-            <div key={`task-${index}`} className="rounded-[24px] border border-[var(--border-subtle)] bg-[var(--surface-secondary)] p-5">
+            <div
+              key={`task-${index}`}
+              ref={(element) => { rowRefs.current[index] = element; }}
+              className="rounded-[24px] border border-[var(--border-subtle)] bg-[var(--surface-secondary)] p-5"
+            >
               {isAssembly ? (
                 <div className="space-y-4">
                   <div className="flex flex-wrap items-start justify-between gap-3 rounded-[20px] border border-[var(--border-subtle)] bg-[var(--surface-primary)] p-4">
@@ -69,7 +88,7 @@ const TaskSection = ({ tasks, onAddTask, onUpdateTask, onDeleteTask, onDuplicate
                       <p className="text-xs uppercase tracking-[0.2em] text-[var(--text-secondary)]">{strings.planner.tasksPreview}</p>
                     </div>
                     <div className="flex gap-2">
-                      <button type="button" onClick={() => onDuplicateTask(index)} className="rounded-full border border-[var(--border-subtle)] bg-[var(--surface-primary)] p-2 text-[var(--text-secondary)]">
+                      <button type="button" onClick={() => onCopyTask(index)} title={strings.planner.copyTaskLabel} aria-label={strings.planner.copyTaskLabel} className="rounded-full border border-[var(--border-subtle)] bg-[var(--surface-primary)] p-2 text-[var(--text-secondary)]">
                         <Copy size={16} />
                       </button>
                       <button type="button" onClick={() => onDeleteTask(index)} className="rounded-full border border-rose-200 bg-rose-50 p-2 text-rose-700">
@@ -80,7 +99,7 @@ const TaskSection = ({ tasks, onAddTask, onUpdateTask, onDeleteTask, onDuplicate
                   <div className="grid gap-4 lg:grid-cols-3">
                     <label className="block text-sm text-[var(--text-secondary)]">
                       <span>{strings.planner.taskNameLabel}</span>
-                      <input value={task?.title ?? ''} onChange={(e) => onUpdateTask(index, 'title', e.target.value)} className="app-input mt-2" placeholder={strings.planner.placeholders.taskName} />
+                      <input data-task-title value={task?.title ?? ''} onChange={(e) => onUpdateTask(index, 'title', e.target.value)} className="app-input mt-2" placeholder={strings.planner.placeholders.taskName} />
                     </label>
                     <label className="block text-sm text-[var(--text-secondary)]">
                       <span>{strings.planner.projectLabel}</span>

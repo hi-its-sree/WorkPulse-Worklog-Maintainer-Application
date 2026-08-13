@@ -75,34 +75,44 @@ export const buildAnalyticsPayload = ({ projects = [], tasks = [], worklogs = []
   const workItems = [...filteredTasks, ...sessionTasks];
 
   // Work carrying the same name in the same project is one piece of work, however
-  // many days it was logged over.
+  // many days it was logged over. The same task is logged again every day it is
+  // worked on, so the days disagree: Monday says ONGOING and Tuesday says COMPLETED.
+  // The day a status was recorded settles it — the newest entry says where the work
+  // stands now. That also lets work reopened after being finished go back to open
+  // instead of staying done forever. Rows with no date (standalone Task rows) never
+  // displace a dated status.
   const groupWorkItems = (items) => Object.values(items.reduce((acc, task) => {
     const key = `${task.projectId || 'none'}::${String(task.title || '').trim().toLowerCase()}`;
+    const dateKey = getDateKey(task.logDate || task.startTime);
     if (!acc[key]) {
       acc[key] = {
         id: task.id,
         name: task.title,
+        projectId: task.projectId || null,
         minutes: 0,
         plannedMinutes: 0,
         status: task.status,
+        statusDate: dateKey,
         lastDate: null,
         projectName: projects.find((candidate) => Number(candidate.id) === Number(task.projectId))?.name || 'Unassigned',
       };
     }
     acc[key].minutes += Number(task.actualMinutes || 0);
     acc[key].plannedMinutes += Number(task.plannedMinutes || 0);
-    const dateKey = getDateKey(task.logDate || task.startTime);
     if (dateKey && (!acc[key].lastDate || dateKey > acc[key].lastDate)) acc[key].lastDate = dateKey;
-    // The furthest-along status describes where the work stands.
-    if (task.status === 'COMPLETED') acc[key].status = 'COMPLETED';
-    else if (task.status === 'IN_PROGRESS' && acc[key].status !== 'COMPLETED') acc[key].status = 'IN_PROGRESS';
+    if (!acc[key].statusDate || (dateKey && dateKey >= acc[key].statusDate)) {
+      acc[key].status = task.status;
+      acc[key].statusDate = dateKey || acc[key].statusDate;
+    }
     return acc;
   }, {})).map((task) => ({ ...task, hours: toHours(task.minutes), plannedHours: toHours(task.plannedMinutes) }));
 
+  // Every task figure below counts grouped work, never the per-day rows, so a task
+  // carried across days is one task with one status instead of one entry per day.
   const groupedWork = groupWorkItems(workItems);
 
-  const completedTasks = workItems.filter((task) => task.status === 'COMPLETED').length;
-  const completedTasksPercentage = workItems.length ? Number(((completedTasks / workItems.length) * 100).toFixed(2)) : 0;
+  const completedTasks = groupedWork.filter((task) => task.status === 'COMPLETED').length;
+  const completedTasksPercentage = groupedWork.length ? Number(((completedTasks / groupedWork.length) * 100).toFixed(2)) : 0;
 
   const activeProjects = projects.filter((project) => ['ACTIVE', 'AT_RISK', 'COMPLETED'].includes(project.status)).length;
 
@@ -157,12 +167,12 @@ export const buildAnalyticsPayload = ({ projects = [], tasks = [], worklogs = []
       const project = projectKey === UNASSIGNED ? null : projects.find((candidate) => Number(candidate.id) === Number(projectKey));
       const name = project?.name || 'Unassigned';
       const projectTasks = project
-        ? workItems.filter((task) => Number(task.projectId) === Number(project.id))
-        : workItems.filter((task) => !task.projectId);
+        ? groupedWork.filter((task) => Number(task.projectId) === Number(project.id))
+        : groupedWork.filter((task) => !task.projectId);
       const completedProjectTasks = projectTasks.filter((task) => task.status === 'COMPLETED').length;
       const progress = projectTasks.length ? Number(((completedProjectTasks / projectTasks.length) * 100).toFixed(0)) : 0;
       const averageCompletionTime = projectTasks.length
-        ? Number((projectTasks.reduce((sum, task) => sum + Number(task.actualMinutes || 0), 0) / projectTasks.length / 60).toFixed(1))
+        ? Number((projectTasks.reduce((sum, task) => sum + Number(task.minutes || 0), 0) / projectTasks.length / 60).toFixed(1))
         : 0;
       return {
         id: project?.id || null,
@@ -260,10 +270,10 @@ export const buildAnalyticsPayload = ({ projects = [], tasks = [], worklogs = []
     openTasks,
     taskCompletionSummary: {
       completed: completedTasks,
-      inProgress: workItems.filter((task) => task.status === 'IN_PROGRESS').length,
-      overdue: workItems.filter((task) => task.status === 'BLOCKED').length,
-      pending: workItems.length - completedTasks,
-      averageTimePerTask: workItems.length ? Number((workItems.reduce((sum, task) => sum + Number(task.actualMinutes || 0), 0) / workItems.length / 60).toFixed(1)) : 0,
+      inProgress: groupedWork.filter((task) => task.status === 'IN_PROGRESS').length,
+      overdue: groupedWork.filter((task) => task.status === 'BLOCKED').length,
+      pending: groupedWork.length - completedTasks,
+      averageTimePerTask: groupedWork.length ? Number((groupedWork.reduce((sum, task) => sum + Number(task.minutes || 0), 0) / groupedWork.length / 60).toFixed(1)) : 0,
     },
     overtime: {
       normalHours: Number(clamp(normalHours, 0, Number.MAX_SAFE_INTEGER).toFixed(2)),
@@ -277,7 +287,7 @@ export const buildAnalyticsPayload = ({ projects = [], tasks = [], worklogs = []
     },
     meta: {
       totalProjects: projects.length,
-      totalTasks: workItems.length,
+      totalTasks: groupedWork.length,
       totalWorklogs: worklogs.length,
       totalUsers: users.length,
     },

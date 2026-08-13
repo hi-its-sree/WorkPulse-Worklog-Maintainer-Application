@@ -11,6 +11,7 @@ import { defaultAssemblyTask, defaultMeeting, defaultSection, defaultTask, norma
 import { getJapaneseHolidays } from '../lib/holidays.js';
 import { fetchPlan, savePlan } from '../lib/workflowStore.js';
 import { formatProjectLabel } from '../lib/useProjects.js';
+import { copyTextToClipboard } from '../lib/clipboard.js';
 
 const formatDateKeyLocal = (date) => formatDateKey(date);
 
@@ -53,6 +54,11 @@ const PlannerPage = () => {
   // Only user edits trigger the autosave, so simply browsing a date never writes an
   // empty plan for it to the database.
   const [dirty, setDirty] = useState(false);
+  // Which row was just added, so the page can move to it. Copying never sets these:
+  // the clipboard action leaves the list and the scroll position untouched.
+  const [focusTask, setFocusTask] = useState(null);
+  const [focusMeeting, setFocusMeeting] = useState(null);
+  const [toast, setToast] = useState(null);
   const previewRef = useRef(null);
 
   const weekDates = useMemo(() => {
@@ -113,6 +119,12 @@ const PlannerPage = () => {
   }, [selectedDateKey, selectedHoliday]);
 
   useEffect(() => {
+    if (!toast) return undefined;
+    const timer = window.setTimeout(() => setToast(null), 2400);
+    return () => window.clearTimeout(timer);
+  }, [toast]);
+
+  useEffect(() => {
     if (previewVisible && previewRef.current) {
       previewRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
@@ -151,12 +163,56 @@ const PlannerPage = () => {
     markEdited();
   };
 
-  const addTask = () => { setTasks((current) => [...current, { ...defaultTask }]); markEdited(); };
-  const addMeeting = () => { setMeetings((current) => [...current, { ...defaultMeeting }]); markEdited(); };
+  const addTask = () => {
+    setTasks((current) => [...current, { ...defaultTask }]);
+    setFocusTask(tasks.length);
+    markEdited();
+  };
+
+  const addMeeting = () => {
+    setMeetings((current) => [...current, { ...defaultMeeting }]);
+    setFocusMeeting(meetings.length);
+    markEdited();
+  };
+
   const deleteTask = (index) => { setTasks((current) => current.filter((_, i) => i !== index)); markEdited(); };
-  const duplicateTask = (index) => { setTasks((current) => [...current, { ...current[index], title: `${current[index].title || 'Task'} copy` }]); markEdited(); };
   const deleteMeeting = (index) => { setMeetings((current) => current.filter((_, i) => i !== index)); markEdited(); };
-  const duplicateMeeting = (index) => { setMeetings((current) => [...current, { ...current[index], title: `${current[index].title || 'Meeting'} copy` }]); markEdited(); };
+
+  // Copying hands the row's details to the clipboard so they can be pasted into a
+  // report or a chat. It adds no row, changes no plan, and moves the page nowhere.
+  const copyRow = async (text, successMessage) => {
+    const copied = await copyTextToClipboard(text);
+    setToast({ text: copied ? successMessage : strings.planner.copyFailed, ok: copied });
+  };
+
+  const taskAsText = (task) => [
+    `${strings.planner.taskNameLabel}: ${task?.title || strings.planner.untitledTask}`,
+    `${strings.planner.projectLabel}: ${task?.project ? formatProjectLabel({ projectNumber: task.projectNumber, name: task.project }) : strings.planner.noProjectSelected}`,
+    `${strings.planner.plannedMinutes}: ${task?.planned || '0'}`,
+    `${strings.planner.taskStatusLabel}: ${formatTaskStatus(task?.status)}`,
+    `${strings.planner.taskDescriptionLabel}: ${task?.description || strings.planner.noDescriptionAdded}`,
+  ].join('\n');
+
+  const meetingAsText = (meeting) => [
+    `${strings.planner.meetingTitleLabel}: ${meeting?.title || strings.planner.untitledMeeting}`,
+    `${strings.planner.meetingTypeLabel}: ${formatMeetingType(meeting?.type)}`,
+    `${strings.planner.meetingFromLabel}: ${meeting?.from || '—'}`,
+    `${strings.planner.meetingToLabel}: ${meeting?.to || '—'}`,
+    `${strings.planner.durationLabel}: ${calculateMeetingDuration(meeting)} ${strings.planner.minutesLabel}`,
+    `${strings.planner.meetingDescriptionLabel}: ${meeting?.description || strings.planner.noDescriptionAdded}`,
+  ].join('\n');
+
+  const copyTask = (index) => {
+    const task = tasks[index];
+    if (!task) return;
+    copyRow(taskAsText(task), strings.planner.taskCopied);
+  };
+
+  const copyMeeting = (index) => {
+    const meeting = meetings[index];
+    if (!meeting) return;
+    copyRow(meetingAsText(meeting), strings.planner.meetingCopied);
+  };
 
   const shiftWeek = (offset) => {
     const nextDate = new Date(selectedDate);
@@ -294,7 +350,7 @@ const PlannerPage = () => {
 
         <WeeklyCalendar weekDates={weekDates} selectedDate={selectedDate} onSelectDate={(nextDate) => setSelectedDate(nextDate)} holidays={holidays} today={today} onShiftWeek={shiftWeek} />
 
-        <div className="mb-4 grid gap-2 sm:grid-cols-3">
+        <div className="mb-8 grid gap-4 sm:grid-cols-3">
           <div className="flex items-center gap-2 rounded-3xl border border-[var(--border-subtle)] bg-[var(--surface-primary)] p-3 text-sm text-[var(--text-secondary)] shadow-sm">
             <span className="h-3.5 w-3.5 rounded-full bg-[var(--accent)]" />
             {strings.planner.selectedDate}
@@ -333,8 +389,8 @@ const PlannerPage = () => {
             )}
 
             <div className="space-y-6">
-              <TaskSection tasks={tasks} onAddTask={addTask} onUpdateTask={updateTask} onDeleteTask={deleteTask} onDuplicateTask={duplicateTask} errors={errors.tasks ? { 0: errors.tasks } : {}} />
-              <MeetingSection meetings={meetings} onAddMeeting={addMeeting} onUpdateMeeting={updateMeeting} onDeleteMeeting={deleteMeeting} onDuplicateMeeting={duplicateMeeting} errors={errors.meetings ? { 0: errors.meetings } : {}} />
+              <TaskSection tasks={tasks} onAddTask={addTask} onUpdateTask={updateTask} onDeleteTask={deleteTask} onCopyTask={copyTask} errors={errors.tasks ? { 0: errors.tasks } : {}} focusIndex={focusTask} onFocusHandled={() => setFocusTask(null)} />
+              <MeetingSection meetings={meetings} onAddMeeting={addMeeting} onUpdateMeeting={updateMeeting} onDeleteMeeting={deleteMeeting} onCopyMeeting={copyMeeting} errors={errors.meetings ? { 0: errors.meetings } : {}} focusIndex={focusMeeting} onFocusHandled={() => setFocusMeeting(null)} />
 
               <div className="rounded-[28px] border border-[var(--border-subtle)] bg-[var(--surface-primary)] p-6 shadow-sm">
                 <div className="mb-4 flex items-center justify-between gap-4">
@@ -469,6 +525,19 @@ const PlannerPage = () => {
           </motion.div>
         </div>
       </div>
+
+      {toast && (
+        <motion.div
+          role="status"
+          aria-live="polite"
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          className={`fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-full px-5 py-3 text-sm font-semibold shadow-lg ${toast.ok ? 'border border-emerald-200 bg-emerald-50 text-emerald-700' : 'border border-rose-200 bg-rose-50 text-rose-700'}`}
+        >
+          {toast.ok ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
+          {toast.text}
+        </motion.div>
+      )}
     </div>
   );
 };

@@ -178,9 +178,13 @@ const TimesheetPage = () => {
   const regularHours = Math.min(weeklyHours, WEEKLY_TARGET_HOURS);
   const overtimeHours = Math.max(0, weeklyHours - WEEKLY_TARGET_HOURS);
   const remainingHours = Math.max(0, WEEKLY_TARGET_HOURS - weeklyHours);
-  const completedCount = useMemo(() => worklogRecords.filter((row) => row.completed).length, [worklogRecords]);
+  // One entry per task rather than per logged day, so a task carried over several
+  // days is counted once and reads with the status of its most recent day.
+  const allTaskGroups = useMemo(() => groupRecordsByTask(worklogRecords, { matchMode }), [worklogRecords, matchMode]);
+  const completedCount = useMemo(() => allTaskGroups.filter((group) => group.completed).length, [allTaskGroups]);
 
-  const filteredRows = useMemo(() => {
+  // Everything but the status filter, which the two views read differently below.
+  const rowsInScope = useMemo(() => {
     const normalizedStart = dateRangeStart ? new Date(`${dateRangeStart}T00:00:00`) : null;
     const normalizedEnd = dateRangeEnd ? new Date(`${dateRangeEnd}T23:59:59`) : null;
 
@@ -189,12 +193,23 @@ const TimesheetPage = () => {
       const matchesRange = (!normalizedStart || rowDate >= normalizedStart) && (!normalizedEnd || rowDate <= normalizedEnd);
       const matchesProject = projectFilter === 'all' || projectKeyOf(row) === projectFilter;
       const matchesTask = taskFilter === 'all' || normalizeTaskKey(row.task) === normalizeTaskKey(taskFilter);
-      const matchesStatus = statusFilter === 'all' || row.status.toLowerCase() === statusFilter.toLowerCase();
-      return matchesRange && matchesProject && matchesTask && matchesStatus;
+      return matchesRange && matchesProject && matchesTask;
     });
-  }, [dateRangeEnd, dateRangeStart, projectFilter, statusFilter, taskFilter, worklogRecords]);
+  }, [dateRangeEnd, dateRangeStart, projectFilter, taskFilter, worklogRecords]);
 
-  const groupedRows = useMemo(() => groupRecordsByTask(filteredRows, { matchMode }), [filteredRows, matchMode]);
+  // Grouped by day, each day answers for its own status. Grouped by task, the filter
+  // asks where the task stands now — a task finished yesterday must not still come
+  // back under "Ongoing" because an earlier day was logged that way.
+  const filteredRows = useMemo(
+    () => rowsInScope.filter((row) => statusFilter === 'all' || String(row.status).toLowerCase() === statusFilter.toLowerCase()),
+    [rowsInScope, statusFilter],
+  );
+
+  const groupedRows = useMemo(
+    () => groupRecordsByTask(rowsInScope, { matchMode })
+      .filter((group) => statusFilter === 'all' || String(group.status).toLowerCase() === statusFilter.toLowerCase()),
+    [rowsInScope, matchMode, statusFilter],
+  );
 
   // Keyed by project so two projects that share a name stay distinct.
   const projectOptions = useMemo(() => {
@@ -216,7 +231,7 @@ const TimesheetPage = () => {
   }, [worklogRecords]);
   const statusOptions = useMemo(() => ['all', ...Array.from(new Set(worklogRecords.map((row) => row.status)))], [worklogRecords]);
 
-  const taskBreakdown = useMemo(() => groupRecordsByTask(worklogRecords, { matchMode })
+  const taskBreakdown = useMemo(() => allTaskGroups
     .slice(0, 6)
     .map((group) => ({
       task: group.task,
@@ -225,7 +240,7 @@ const TimesheetPage = () => {
       status: group.status,
       category: group.category,
       dayCount: group.dayCount,
-    })), [worklogRecords]);
+    })), [allTaskGroups]);
 
   const projectBreakdown = useMemo(() => {
     const aggregates = worklogRecords.reduce((acc, row) => {
@@ -313,7 +328,7 @@ const TimesheetPage = () => {
               <OvertimeCard regularHours={regularHours} overtimeHours={overtimeHours} totalHours={weeklyHours} targetHours={WEEKLY_TARGET_HOURS} remainingHours={remainingHours} />
               <div className="space-y-4">
                 <TimeSummaryCard title={strings.timesheet.remainingRequired} value={formatHours(remainingHours)} subtitle={format(strings.timesheet.subtitles.target, { hours: WEEKLY_TARGET_HOURS })} icon={CheckCircle2} accent="var(--accent)" />
-                <TimeSummaryCard title={strings.timesheet.completedTasks} value={`${completedCount}`} subtitle={format(strings.timesheet.subtitles.completedPercent, { percent: Math.round((completedCount / Math.max(1, worklogRecords.length)) * 100) })} icon={TrendingUp} accent="var(--success)" />
+                <TimeSummaryCard title={strings.timesheet.completedTasks} value={`${completedCount}`} subtitle={format(strings.timesheet.subtitles.completedPercent, { percent: Math.round((completedCount / Math.max(1, allTaskGroups.length)) * 100) })} icon={TrendingUp} accent="var(--success)" />
               </div>
             </div>
 

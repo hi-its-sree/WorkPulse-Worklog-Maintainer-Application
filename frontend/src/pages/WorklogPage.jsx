@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { AlertTriangle, CheckCircle2, Clock3, FileText, MessageSquareQuote, Pencil, Save, Send } from 'lucide-react';
 import { AuthContext } from '../contexts/AuthContext.jsx';
 import { useLanguage, format } from '../contexts/LanguageContext.jsx';
-import { DEFAULT_SESSION_STATUS, formatDateKey, getSessionStatusLabel, getSessionStatusTone, SESSION_STATUSES, WORKFLOW_STATUSES, getStatusLabel } from '../components/workflow/constants.js';
+import { DEFAULT_SESSION_STATUS, formatDateKey, getSessionStatusLabel, getSessionStatusTone, SESSION_STATUSES, WORKFLOW_STATUSES, getStatusLabel, getStatusTone } from '../components/workflow/constants.js';
 import { getJapaneseHolidays } from '../lib/holidays.js';
 import WeeklyCalendar from '../components/workflow/WeeklyCalendar.jsx';
 import { fetchPlan, fetchWorklog, saveWorklog } from '../lib/workflowStore.js';
@@ -215,13 +215,15 @@ const WorklogPage = () => {
     }));
   };
 
+  // Saving here is the approval step for the day: the person confirms the actuals
+  // against the plan, so the stored worklog comes back APPROVED rather than a draft.
   const handleSave = async () => {
     if (!worklogEntry) return;
     const nextEntry = {
       ...worklogEntry,
       plannedMinutes,
       actualMinutes,
-      status: WORKFLOW_STATUSES.DRAFT,
+      status: WORKFLOW_STATUSES.APPROVED,
       completionStatus: rollUpCompletion(worklogEntry.details || []),
       updatedBy: user?.fullName || 'Employee',
       updatedAt: new Date().toISOString(),
@@ -230,7 +232,7 @@ const WorklogPage = () => {
     try {
       const saved = await saveWorklog(formatDateKey(selectedDate), nextEntry);
       setWorklogEntry({ ...nextEntry, ...saved, details: nextEntry.details });
-      setMessage(strings.worklog.saveSuccess);
+      setMessage(strings.worklog.approveSuccess);
       setError('');
       setIsEditing(false);
     } catch (saveError) {
@@ -374,7 +376,9 @@ const WorklogPage = () => {
               <div className="mt-4 space-y-3">
                 <div className="rounded-[24px] border border-[var(--border-subtle)] bg-[var(--surface-primary)] p-4 text-sm text-[var(--text-secondary)]">
                   <p className="font-semibold text-[var(--text-primary)]">{strings.worklog.currentState}</p>
-                  <p className="mt-1">{getStatusLabel(worklogEntry?.status || WORKFLOW_STATUSES.IN_PROGRESS, strings)}</p>
+                  <span className={`mt-2 inline-flex rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] ${getStatusTone(worklogEntry?.status || WORKFLOW_STATUSES.DRAFT)}`}>
+                    {getStatusLabel(worklogEntry?.status || WORKFLOW_STATUSES.DRAFT, strings)}
+                  </span>
                 </div>
                 <div className="rounded-[24px] border border-[var(--border-subtle)] bg-[var(--surface-primary)] p-4 text-sm text-[var(--text-secondary)]">
                   <p className="font-semibold text-[var(--text-primary)]">{strings.worklog.difference}</p>
@@ -387,7 +391,7 @@ const WorklogPage = () => {
               <div className="flex items-center gap-2 text-sm font-semibold text-[var(--text-secondary)]"><AlertTriangle size={16} /> {strings.worklog.review}</div>
               <p className="mt-3 text-sm text-[var(--text-secondary)]">{strings.worklog.reviewDescription}</p>
               <button type="button" onClick={handleSave} className="app-action-btn mt-4 w-full justify-center gap-2">
-                <Send size={16} /> {strings.worklog.saveWorklog}
+                <Send size={16} /> {strings.worklog.approveWorklog}
               </button>
             </div>
           </div>

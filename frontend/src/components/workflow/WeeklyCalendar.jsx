@@ -51,34 +51,49 @@ const WeeklyCalendar = ({ weekDates, selectedDate, onSelectDate, holidays = {}, 
         </div>
       </div>
 
-      <div className="flex snap-x gap-2 overflow-x-auto scroll-smooth pb-2">
-        {weekDates.map((date) => {
-          const key = formatDateKey(date);
-          const isToday = isSameDate(date, today);
-          const isSelected = isSameDate(date, selectedDate);
-          const holidayLabel = holidays[key];
-          const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+      {/* Seven equal columns. Every cell is the same height and width whether or not
+          it carries a holiday name, and a long name is clipped rather than
+          stretching its column. */}
+      <div className="overflow-x-auto pb-2">
+        <div className="grid min-w-[560px] grid-cols-7 gap-2">
+          {weekDates.map((date) => {
+            const key = formatDateKey(date);
+            const isToday = isSameDate(date, today);
+            const isSelected = isSameDate(date, selectedDate);
+            const holidayLabel = holidays[key];
+            const isWeekend = date.getDay() === 0 || date.getDay() === 6;
 
-          return (
-            <button
-              key={key}
-              type="button"
-              onClick={() => onSelectDate(date)}
-              className={`min-w-[84px] snap-start rounded-[24px] border px-3 py-3 text-center text-[11px] transition ${isSelected ? 'border-[var(--accent)] bg-[var(--surface-primary)] shadow-sm' : isToday ? 'border-amber-300 bg-amber-100 text-amber-700' : holidayLabel || isWeekend ? 'border-rose-200 bg-rose-50 text-rose-700' : 'border-transparent bg-[var(--surface-primary)]/70 text-[var(--text-secondary)]'}`}
-            >
-              <p className="uppercase tracking-[0.34em] text-[var(--text-secondary)]">{date.toLocaleDateString(locale, { weekday: 'short' })}</p>
-              <p className="mt-2 text-sm font-semibold text-[var(--text-primary)]">{date.getDate()}</p>
-              <p className="mt-1 text-[10px] uppercase tracking-[0.2em] text-[var(--text-secondary)]">{date.toLocaleDateString(locale, { month: 'short' })}</p>
-              {isToday && !isSelected ? (
-                <span className="mt-2 inline-flex rounded-full bg-amber-200 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.25em] text-amber-700">{strings.calendar.today}</span>
-              ) : holidayLabel ? (
-                <span className="mt-2 inline-flex rounded-full bg-rose-200 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.25em] text-rose-700">{holidayLabel}</span>
-              ) : isWeekend ? (
-                <span className="mt-2 inline-flex rounded-full bg-slate-200 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.25em] text-slate-600">{date.getDay() === 0 ? strings.calendar.sunday : strings.calendar.saturday}</span>
-              ) : null}
-            </button>
-          );
-        })}
+            const badge = isToday && !isSelected
+              ? { text: strings.calendar.today, tone: 'bg-amber-200 text-amber-700' }
+              : holidayLabel
+                ? { text: holidayLabel, tone: 'bg-rose-200 text-rose-700' }
+                : isWeekend
+                  ? { text: date.getDay() === 0 ? strings.calendar.sunday : strings.calendar.saturday, tone: 'bg-slate-200 text-slate-600' }
+                  : null;
+
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={() => onSelectDate(date)}
+                title={holidayLabel || undefined}
+                className={`flex h-[116px] w-full flex-col items-center justify-start overflow-hidden rounded-[24px] border px-2 py-3 text-center text-[11px] transition ${isSelected ? 'border-[var(--accent)] bg-[var(--surface-primary)] shadow-sm' : isToday ? 'border-amber-300 bg-amber-100 text-amber-700' : holidayLabel || isWeekend ? 'border-rose-200 bg-rose-50 text-rose-700' : 'border-transparent bg-[var(--surface-primary)]/70 text-[var(--text-secondary)]'}`}
+              >
+                <p className="w-full truncate uppercase tracking-[0.2em] text-[var(--text-secondary)]">{date.toLocaleDateString(locale, { weekday: 'short' })}</p>
+                <p className="mt-1 text-base font-semibold text-[var(--text-primary)]">{date.getDate()}</p>
+                <p className="w-full truncate text-[10px] uppercase tracking-[0.16em] text-[var(--text-secondary)]">{date.toLocaleDateString(locale, { month: 'short' })}</p>
+                {/* Reserved slot: cells without a badge keep the same height. */}
+                <span className="mt-auto flex h-[22px] w-full items-center justify-center">
+                  {badge && (
+                    <span className={`block max-w-full truncate rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] ${badge.tone}`}>
+                      {badge.text}
+                    </span>
+                  )}
+                </span>
+              </button>
+            );
+          })}
+        </div>
       </div>
     </div>
   );

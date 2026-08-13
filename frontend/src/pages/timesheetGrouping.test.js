@@ -128,13 +128,35 @@ describe('timesheet grouping', () => {
     expect(grouped).toHaveLength(2);
   });
 
-  it('marks a task completed only when every day is completed', () => {
+  it('reads a carried-over task from its most recent day, not from both', () => {
     const grouped = groupRecordsByTask([
-      row({ completed: true }),
-      row({ dateKey: '2026-08-07', completed: false }),
+      row({ dateKey: '2026-08-06', status: 'Ongoing', completed: false }),
+      row({ dateKey: '2026-08-07', status: 'Completed', completed: true }),
     ]);
 
+    expect(grouped).toHaveLength(1);
+    expect(grouped[0].status).toBe('Completed');
+    expect(grouped[0].completed).toBe(true);
+  });
+
+  it('reopens a task that was logged again after being completed', () => {
+    const grouped = groupRecordsByTask([
+      row({ dateKey: '2026-08-06', status: 'Completed', completed: true }),
+      row({ dateKey: '2026-08-07', status: 'Ongoing', completed: false }),
+    ]);
+
+    expect(grouped[0].status).toBe('Ongoing');
     expect(grouped[0].completed).toBe(false);
+  });
+
+  it('settles the status by date, whatever order the days arrive in', () => {
+    const grouped = groupRecordsByTask([
+      row({ dateKey: '2026-08-07', status: 'Completed', completed: true }),
+      row({ dateKey: '2026-08-06', status: 'Ongoing', completed: false }),
+    ]);
+
+    expect(grouped[0].status).toBe('Completed');
+    expect(grouped[0].completed).toBe(true);
   });
 
   it('sorts the heaviest task first', () => {
